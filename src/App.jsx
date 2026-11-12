@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from '@firebase/auth'
+import { auth, isFirebaseConfigured } from './firebase'
 import './App.css'
 
 const initialSpaces = [
@@ -24,6 +26,7 @@ function Icon({ name, size = 18 }) {
     close: <><path d="m18 6-12 12M6 6l12 12" /></>,
     check: <path d="m5 12 4 4L19 6" />,
     arrow: <><path d="M7 17 17 7M7 7h10v10" /></>,
+    logout: <><path d="M10 17l5-5-5-5M15 12H3" /><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" /></>,
   }
 
   return (
@@ -50,6 +53,58 @@ function App() {
   const [columns, setColumns] = useState(3)
   const [newChannel, setNewChannel] = useState('')
   const [channelError, setChannelError] = useState('')
+  const [user, setUser] = useState(null)
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authError, setAuthError] = useState('')
+
+  useEffect(() => {
+    if (!auth) return undefined
+
+    return onAuthStateChanged(
+      auth,
+      setUser,
+      (error) => setAuthError(`Could not restore your sign-in: ${error.message}`),
+    )
+  }, [])
+
+  const handleGoogleSignIn = async () => {
+    setAuthError('')
+    if (!auth || !isFirebaseConfigured) {
+      setAuthError('Google sign-in is not configured. Add the Firebase web app values and enable Google in Firebase Authentication.')
+      return
+    }
+
+    setAuthBusy(true)
+    try {
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: 'select_account' })
+      await signInWithPopup(auth, provider)
+    } catch (error) {
+      if (error.code === 'auth/popup-closed-by-user') return
+
+      const message = error.code === 'auth/unauthorized-domain'
+        ? 'This site is not authorized in Firebase. Add its hostname under Authentication → Settings → Authorized domains.'
+        : error.code === 'auth/operation-not-allowed'
+          ? 'Google sign-in is not enabled for this Firebase project.'
+          : error.code === 'auth/popup-blocked'
+            ? 'Your browser blocked the Google sign-in popup. Allow popups for this site and try again.'
+            : `Google sign-in failed: ${error.message}`
+      setAuthError(message)
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    if (!auth) return
+
+    setAuthError('')
+    try {
+      await signOut(auth)
+    } catch (error) {
+      setAuthError(`Could not sign out: ${error.message}`)
+    }
+  }
 
   const addSpace = (event) => {
     event.preventDefault()
@@ -118,8 +173,10 @@ function App() {
             <Icon name="settings" /> Settings
           </button>
           <div className="sidebar-footer">
-            <span className="avatar avatar-small">J</span>
-            <div><strong>Jamie Parker</strong><span>Free plan</span></div>
+            {user?.photoURL
+              ? <img className="avatar avatar-small" src={user.photoURL} alt="" referrerPolicy="no-referrer" />
+              : <span className="avatar avatar-small">{(user?.displayName || user?.email || 'J').slice(0, 1).toUpperCase()}</span>}
+            <div><strong>{user?.displayName || user?.email || 'Jamie Parker'}</strong><span>{user ? 'Google account' : 'Free plan'}</span></div>
             <Icon name="more" size={19} />
           </div>
         </div>
@@ -129,12 +186,26 @@ function App() {
         <header className="topbar">
           <div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={14} /><strong>Overview</strong></div>
           <div className="topbar-actions">
-            <span className="connection-status"><span /> Workspace preview</span>
-            <button className="signin-button" type="button" onClick={() => setModal({ type: 'google' })}>
-              <Icon name="google" size={18} /> Sign in with Google
+            <span className="connection-status"><span /> {user ? 'Signed in with Google' : 'Workspace preview'}</span>
+            <button
+              className="signin-button"
+              type="button"
+              disabled={authBusy}
+              onClick={user ? handleSignOut : handleGoogleSignIn}
+            >
+              {user?.photoURL && <img className="signin-avatar" src={user.photoURL} alt="" referrerPolicy="no-referrer" />}
+              {!user && <Icon name="google" size={18} />}
+              {authBusy ? 'Connecting…' : user ? 'Sign out' : 'Sign in with Google'}
+              {user && <Icon name="logout" size={15} />}
             </button>
           </div>
         </header>
+        {authError && (
+          <div className="auth-alert" role="alert">
+            <span>{authError}</span>
+            <button className="icon-button" type="button" aria-label="Dismiss sign-in error" onClick={() => setAuthError('')}><Icon name="close" size={15} /></button>
+          </div>
+        )}
 
         <div className="page-content">
           <section className="welcome-panel">
@@ -240,7 +311,7 @@ function App() {
         }}>
           <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <button className="modal-close icon-button" type="button" aria-label="Close dialog" onClick={() => setModal(null)}><Icon name="close" /></button>
-            <span className="modal-orb"><Icon name={modal.type === 'google' ? 'google' : 'twitch'} size={22} /></span>
+            <span className="modal-orb"><Icon name="twitch" size={22} /></span>
             {modal.type === 'add' ? (
               <>
                 <span className="modal-kicker">MAKE SOME SPACE</span>
@@ -256,15 +327,13 @@ function App() {
             ) : (
               <>
                 <span className="modal-kicker">{modal.type === 'accounts' ? 'ACCOUNT CONNECTIONS' : 'COMING UP NEXT'}</span>
-                <h2 id="modal-title">{modal.type === 'google' ? 'Welcome to your orbit.' : modal.type === 'twitch' ? `Connect ${modal.space}.` : modal.type === 'accounts' ? 'Your accounts, your space.' : 'Make it your own.'}</h2>
-                <p>{modal.type === 'google'
-                  ? 'Google sign-in is ready to connect once OAuth credentials and a secure backend are configured.'
-                  : modal.type === 'twitch'
-                    ? 'Twitch account linking needs a secure OAuth flow. Twitch embeds currently use the browser’s shared Twitch login, not separate accounts per space.'
-                    : modal.type === 'accounts'
-                      ? 'No accounts connected yet. Add OAuth to securely link Google and Twitch accounts.'
-                      : 'Workspace settings and account preferences will live here.'}</p>
-                <div className="integration-note"><span className="note-icon"><Icon name="check" size={15} /></span><span><strong>Preview mode</strong><small>Sign-in and account linking are not active yet.</small></span></div>
+                <h2 id="modal-title">{modal.type === 'twitch' ? `Connect ${modal.space}.` : modal.type === 'accounts' ? 'Your accounts, your space.' : 'Make it your own.'}</h2>
+                <p>{modal.type === 'twitch'
+                  ? 'Twitch account linking needs a secure OAuth flow. Twitch embeds currently use the browser’s shared Twitch login, not separate accounts per space.'
+                  : modal.type === 'accounts'
+                    ? 'Google sign-in is available from the top of the page. Twitch account linking is not active yet.'
+                    : 'Workspace settings and account preferences will live here.'}</p>
+                <div className="integration-note"><span className="note-icon"><Icon name="check" size={15} /></span><span><strong>Google sign-in</strong><small>Your Google session is managed by Firebase Authentication.</small></span></div>
                 <button className="primary-button modal-submit" type="button" onClick={() => setModal(null)}>Got it</button>
               </>
             )}

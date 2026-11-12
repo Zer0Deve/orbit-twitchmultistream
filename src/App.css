@@ -50,6 +50,10 @@
 .connection-status > span, .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #63d39a; box-shadow: 0 0 8px #63d39a6b; }
 .signin-button { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.11); border-radius: 7px; background: #f4f1f8; color: #26222d; font-size: 10px; font-weight: 600; cursor: pointer; transition: background .2s, transform .2s; }
 .signin-button:hover { transform: translateY(-1px); background: white; }
+.signin-button:disabled { cursor: wait; opacity: .7; transform: none; }
+.signin-avatar { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+.auth-alert { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 760px; margin: 12px 42px -10px auto; padding: 9px 10px 9px 13px; border: 1px solid rgba(242, 125, 151, .3); border-radius: 7px; background: #321d29; color: #ffd2dc; font-size: 10px; line-height: 1.5; }
+.auth-alert .icon-button { color: #e7aab8; }
 .page-content { max-width: 1440px; margin: 0 auto; padding: 28px 42px 18px; }
 
 .welcome-panel { position: relative; display: flex; min-height: 251px; overflow: hidden; border: 1px solid rgba(179, 150, 247, .16); border-radius: 15px; background: radial-gradient(ellipse at 75% 50%, #32263f 0, #241d30 35%, #1b1723 73%); box-shadow: 0 16px 42px rgba(0,0,0,.14); }
@@ -196,6 +200,7 @@
   .topbar { height: 55px; padding: 0 16px; }
   .connection-status { display: none; }
   .signin-button { padding: 7px 9px; font-size: 9px; }
+  .auth-alert { margin: 10px 16px -8px; }
   .page-content { padding: 18px 16px 14px; }
   .welcome-panel { min-height: 250px; }
   .welcome-copy { width: 70%; padding: 23px 20px; }
