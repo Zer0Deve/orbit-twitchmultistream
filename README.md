@@ -9,6 +9,10 @@ npm install
 npm run dev
 ```
 
+## Deploy to GitHub Pages
+
+The `master` branch deploys automatically with GitHub Actions. The production build uses the repository subpath at `https://zer0deve.github.io/orbit-twitchmultistream/`; local development continues to use `/`.
+
 The Twitch embeds use the current hostname as their required `parent` parameter. A channel can be added from **Add space**; whether it plays depends on Twitch availability and embed permissions.
 
 ## Integration boundary
